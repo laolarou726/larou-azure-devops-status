@@ -184,19 +184,19 @@
                                     hide-on-leave
                             >
                                 <v-timeline-item
-                                        :color="item.color"
-                                        :icon="item.color === 'green' ? 'mdi-check-circle' : item.color === 'red' ? 'mdi-close-circle' : 'mdi-information'"
+                                        v-for="(timeline, i) in timeLineData"
+                                        :color="timeline.color"
+                                        :icon="timeline.color === 'green' ? 'mdi-check-circle' : timeline.color === 'red' ? 'mdi-close-circle' : 'mdi-information'"
                                         :key="i"
                                         fill-dot
-                                        v-for="(item, i) in timeLineData"
                                 >
                                     <v-card
-                                            :color="item.color"
+                                            :color="timeline.color"
                                             dark
                                     >
-                                        <v-card-title class="title">任务：{{ item.title }}</v-card-title>
+                                        <v-card-title class="title">任务：{{ timeline.title }}</v-card-title>
                                         <v-card-text class="text--primary">
-                                            <div class="mb-4">构建ID：{{ item.id }}</div>
+                                            <div class="mb-4">构建ID：{{ timeline.id }}</div>
                                             <v-container fluid>
                                                 <v-simple-table fixed-header height="350px">
                                                     <template v-slot:default>
@@ -207,7 +207,7 @@
                                                         </tr>
                                                         </thead>
                                                         <tbody>
-                                                        <tr :key="i" v-for="([k, v], i) in item.buildInfo">
+                                                        <tr :key="i" v-for="([k, v], i) in timeline.buildInfo">
                                                             <td>{{ k }}</td>
                                                             <td>{{ v }}</td>
                                                         </tr>
@@ -215,24 +215,24 @@
                                                     </template>
                                                 </v-simple-table>
                                                 <v-list class="my-3" rounded three-line
-                                                        v-if="item.issues !== undefined">
+                                                        v-if="timeline.issues !== undefined">
                                                     <v-subheader>错误与警告</v-subheader>
                                                     <v-list-item-group color="primary">
                                                         <v-list-item
                                                                 :key="i"
-                                                                v-for="(item, i) in item.issues"
+                                                                v-for="(issue, i) in timeline.issues"
                                                         >
                                                             <v-list-item-icon>
-                                                                <v-icon :color="item.type === 'error' ? 'red darken-2' : 'yellow darken-2'">
-                                                                    {{ item.type === "error" ?
+                                                                <v-icon :color="issue.type === 'error' ? 'red darken-2' : 'yellow darken-2'">
+                                                                    {{ issue.type === "error" ?
                                                                     "mdi-close-circle" : "mdi-alert" }}
                                                                 </v-icon>
                                                             </v-list-item-icon>
                                                             <v-list-item-content>
                                                                 <v-list-item-title
-                                                                        v-html="item.data.code"></v-list-item-title>
+                                                                        v-html="issue.data.code"></v-list-item-title>
                                                                 <v-list-item-subtitle
-                                                                        v-html="item.message"></v-list-item-subtitle>
+                                                                        v-html="issue.message"></v-list-item-subtitle>
                                                             </v-list-item-content>
                                                         </v-list-item>
                                                     </v-list-item-group>

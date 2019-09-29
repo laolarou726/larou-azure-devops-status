@@ -31,7 +31,7 @@
                   v-for="(item,i) in builds"
           >
             <v-list-item-action>
-              <v-icon :color="item.success ? 'green' : 'red'">{{ items.success ? "mdi-check-circle" :
+              <v-icon :color="item.success ? 'green' : 'red'">{{ item.success ? "mdi-check-circle" :
                 "mdi-close-circle" }}
               </v-icon>
             </v-list-item-action>
@@ -88,12 +88,13 @@
         >
           <v-card-text>
             <v-btn
-                    :key="icon"
+                    v-for="(link, i) in footerLinks"
+                    :key="i"
+                    :to="link.to"
                     class="mx-4"
                     icon
-                    v-for="icon in icons"
             >
-              <v-icon size="24px">{{ icon }}</v-icon>
+              <v-icon size="24px">{{ link.icon }}</v-icon>
             </v-btn>
           </v-card-text>
 
@@ -128,11 +129,19 @@
       });
     },
     data: () => ({
-      icons: [
-        "mdi-home",
-        "mdi-email",
-        "mdi-calendar",
-        "mdi-delete",
+      footerLinks: [
+        {
+          icon: "mdi-home",
+          to: "/",
+        },
+        {
+          icon: "mdi-email",
+          to: "",
+        },
+        {
+          icon: "mdi-information",
+          to: "/about",
+        },
       ],
       items: [
         "default",
