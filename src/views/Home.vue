@@ -83,9 +83,9 @@
           if (result === null) {
             arr.push(new AlertModel("info", "正在拉取构建历史记录, 请稍等片刻"));
           } else {
-            const isSucceed = result.value[result.count - 1].result === "succeeded";
+            const isSucceed = result.value[0].result === "succeeded";
 
-            arr.push(new AlertModel(isSucceed ? "succeeded" : "error", `最新的构建状态：最新的一次构建发生于：${new Date(result.value[0].startTime)}，${isSucceed ? "构建成功" : "构建失败"}`, undefined));
+            arr.push(new AlertModel(isSucceed ? "success" : "error", `最新的构建状态：最新的一次构建发生于：${new Date(result.value[0].startTime)}，${isSucceed ? "构建成功" : "构建失败"}`, undefined));
             arr.push(new AlertModel("info", `查询到的编译历史记录总数：${result.count}个`, undefined));
           }
         }
