@@ -36,7 +36,7 @@
                             </v-card-text>
 
                             <v-card-actions>
-                                <v-btn :disabled="!isSucceed" text>下载本次构建</v-btn>
+                                <v-btn :disabled="!isSucceed" :loading="!isArtifactLoadingComplete" text @click="downloadArtifact">下载本次构建</v-btn>
                             </v-card-actions>
                         </v-card>
                     </v-col>
@@ -68,25 +68,6 @@
                     </v-col>
                 </v-row>
                 <v-container class="pa-0 ma-0" fluid>
-                    <v-alert
-                            border="left"
-                            color="teal"
-                            dense
-                            icon="mdi-clock-fast"
-                            text
-                            v-if="!isLogsLoadingComplete"
-                    >
-                        <v-col>
-                            <v-row>
-                                <div>正在加载编译日志，这通常需要一些时间来完成。</div>
-                                <v-spacer></v-spacer>
-                                <v-progress-circular
-                                        color="red"
-                                        indeterminate
-                                ></v-progress-circular>
-                            </v-row>
-                        </v-col>
-                    </v-alert>
                     <v-card>
                         <v-card-title class="indigo white--text headline">
                             编译日志
@@ -97,8 +78,9 @@
                         >
                             <v-col cols="5">
                                 <v-treeview
-                                        :active.sync="active"
                                         :items="logsTreeData"
+                                        :load-children="getLogs"
+                                        :active.sync="active"
                                         :open.sync="open"
                                         activatable
                                         color="warning"
@@ -251,209 +233,238 @@
 </template>
 
 <script lang="ts">
-    import DelayHelper from "@/helper/delayHelper";
-    import HttpHelper from "@/helper/HttpHelper";
-    import {IBuildLogModel} from "@/models/buildLog/buildLogModel";
-    import BuildTimeLineModel from "@/models/buildTimeLineModel";
-    import {IDevOpsBuildModel} from "@/models/devOps/devOpsBuildModel";
-    import LogSearchModel from "@/models/logSearchModel";
-    import {ITimeLineModel} from "@/models/timeLine/timeLineModel";
-    import TimelineValueListModel from "@/models/timelineValueListModel";
-    import Vue from "vue";
+import DelayHelper from "@/helper/delayHelper";
+import HttpHelper from "@/helper/HttpHelper";
+import {IArtifactModel} from "@/models/artifact/artifactModel";
+import {IBuildLogModel} from "@/models/buildLog/buildLogModel";
+import BuildTimeLineModel from "@/models/buildTimeLineModel";
+import {IDevOpsBuildModel} from "@/models/devOps/devOpsBuildModel";
+import LogSearchModel from "@/models/logSearchModel";
+import {ITimeLineModel} from "@/models/timeLine/timeLineModel";
+import TimelineValueListModel from "@/models/timelineValueListModel";
+import Vue from "vue";
 
-    export default Vue.extend({
-        mounted() {
-            this.updateData();
+export default Vue.extend({
+    mounted() {
+        this.updateData();
+    },
+    data: () => ({
+        buildLogs: null as IBuildLogModel | Error | null,
+        active: [],
+        logs: [] as LogSearchModel[],
+        logsTreeData: [{
+            name: "所有日志",
+            children: [] as object[],
+        }],
+        open: [],
+        isLogsLoadingComplete: false,
+        isTimelineLoadingComplete: false,
+        isArtifactLoadingComplete: false,
+        timeLineData: [] as BuildTimeLineModel[],
+        artifactUrl: "",
+    }),
+    methods: {
+        async updateData() {
+            this.isLogsLoadingComplete = false;
+            this.isTimelineLoadingComplete = false;
+            this.isArtifactLoadingComplete = false;
+            this.buildLogs = null;
+            this.active = [];
+            this.logs = [];
+            this.logsTreeData = [{
+                name: "所有日志",
+                children: [] as object[],
+            }];
+            this.open = [];
+            this.timeLineData = [];
+            this.artifactUrl = "";
+
+            await this.getTimeline();
+            await this.getArtifactDownloadUrl();
         },
-        data: () => ({
-            buildLogs: null as IBuildLogModel | Error | null,
-            active: [],
-            logs: [] as LogSearchModel[],
-            logsTreeData: [] as object[],
-            open: [],
-            isLogsLoadingComplete: false,
-            isTimelineLoadingComplete: false,
-            timeLineData: [] as BuildTimeLineModel[],
-        }),
-        methods: {
-            async updateData() {
-                this.isLogsLoadingComplete = false;
-                this.isTimelineLoadingComplete = false;
-                this.buildLogs = null;
-                this.active = [];
-                this.logs = [];
-                this.logsTreeData = [];
-                this.open = [];
-                this.timeLineData = [];
+        async getTimeline(): Promise<void> {
+            if (this.devOpsData != null) {
+                if (this.buildIndex != null) {
+                    const result =
+                        await HttpHelper
+                            .Get<ITimeLineModel>(this.devOpsData!.value[this.buildIndex!]._links.timeline.href);
+                    for (const record of result.records) {
+                        const map = new Map<string, string>();
+                        const color = record.result === "succeeded" ? "green" : record.result === "failed" ? "red" : "grey";
 
-                await this.getLogs();
-                await this.getTimeline();
-            },
-            async getTimeline(): Promise<void> {
-                if (this.devOpsData != null) {
-                    if (this.buildIndex != null) {
-                        const result =
-                            await HttpHelper
-                                .Get<ITimeLineModel>(this.devOpsData!.value[this.buildIndex!]._links.timeline.href);
-                        for (const record of result.records) {
-                            const map = new Map<string, string>();
-                            const color = record.result === "succeeded" ? "green" : record.result === "failed" ? "red" : "grey";
+                        map.set("工作站名称", record.workerName);
+                        map.set("类型", record.type);
+                        map.set("变更ID", "" + record.changeId);
+                        map.set("顺序", "" + record.order);
+                        map.set("错误计数", "" + record.errorCount);
+                        map.set("警告计数", "" + record.warningCount);
+                        map.set("工作站名称", record.workerName);
+                        map.set("尝试计数", "" + record.attempt);
+                        map.set("标识符", record.identifier);
 
-                            map.set("工作站名称", record.workerName);
-                            map.set("类型", record.type);
-                            map.set("变更ID", "" + record.changeId);
-                            map.set("顺序", "" + record.order);
-                            map.set("错误计数", "" + record.errorCount);
-                            map.set("警告计数", "" + record.warningCount);
-                            map.set("工作站名称", record.workerName);
-                            map.set("尝试计数", "" + record.attempt);
-                            map.set("标识符", record.identifier);
+                        this.timeLineData.push(new BuildTimeLineModel(
+                            record.id,
+                            record.name,
+                            record.state,
+                            record.result,
+                            map,
+                            record.issues,
+                            color,
+                        ));
 
-                            this.timeLineData.push(new BuildTimeLineModel(
-                                record.id,
-                                record.name,
-                                record.state,
-                                record.result,
-                                map,
-                                record.issues,
-                                color,
-                            ));
-
-                            await DelayHelper.sleep(800);
-                        }
-
-                        this.isTimelineLoadingComplete = true;
+                        await DelayHelper.sleep(500);
                     }
-                }
-            },
-            async getLogs(): Promise<void> {
-                if (this.devOpsData != null) {
-                    if (this.buildIndex != null) {
-                        const result = await HttpHelper
-                            .Get<IBuildLogModel>(this.devOpsData!.value[this.buildIndex!].logs.url);
-                        let index = 0;
-                        for (const log of result.value) {
-                            this.logs.push(new LogSearchModel(log.id, await HttpHelper.Get<string>(log.url)));
-                            this.logsTreeData.push({
-                                id: ++index,
-                                name: `${log.type} #${log.id}`,
-                                children: [
-                                    {
-                                        id: ++index,
-                                        name: `创建于：${new Date(log.createdOn)}`,
-                                    },
-                                ],
-                            });
-                        }
 
-                        this.isLogsLoadingComplete = true;
-                    }
+                    this.isTimelineLoadingComplete = true;
                 }
-            },
+            }
         },
-        computed: {
-            logTreeItemSelected(): string | undefined {
-                if (!this.active.length) {
-                    return undefined;
-                }
+        async getLogs(): Promise<void> {
+            if (this.devOpsData != null) {
+                if (this.buildIndex != null) {
+                    const result = await HttpHelper
+                        .Get<IBuildLogModel>(this.devOpsData!.value[this.buildIndex!].logs.url);
 
-                const id = this.active[0];
-                return (this.logs.find((log) => log.id === id))!.log;
-            },
-            devOpsData(): IDevOpsBuildModel | null {
-                const data = this.$store.state.currentDevOpsData as IDevOpsBuildModel;
-                if (data !== undefined) {
-                    return data;
-                }
-
-                return null;
-            },
-            valueList(): TimelineValueListModel[] {
-                const arr: TimelineValueListModel[] = [];
-
-                if (this.devOpsData != null) {
-                    if (this.buildIndex != null) {
-                        arr.push(new TimelineValueListModel("mdi-timeline-plus",
-                            "队列时间", new Date(this.devOpsData!.value[this.buildIndex!].queueTime).toString()));
-                        arr.push(new TimelineValueListModel("mdi-clock-start",
-                            "起始时间", new Date(this.devOpsData!.value[this.buildIndex!].startTime).toString()));
-                        arr.push(new TimelineValueListModel("mdi-clock-end",
-                            "结束时间", new Date(this.devOpsData!.value[this.buildIndex!].finishTime).toString()));
-                        arr.push(new TimelineValueListModel("mdi-priority-high", "优先级",
-                            this.devOpsData!.value[this.buildIndex!].priority));
+                    for (let i = 0; i < result.value.length; i++) {
+                        this.logs.push(
+                            new LogSearchModel(result.value[i].id, await HttpHelper.Get<object>(result.value[i].url)));
+                        this.logsTreeData[0].children.push({
+                            id: i,
+                            name: `${result.value[i].type} #${result.value[i].id}`,
+                            children: [
+                                {
+                                    id: result.value[i].id,
+                                    name: `创建于：${new Date(result.value[i].createdOn)}`,
+                                },
+                            ],
+                        });
                     }
+
+                    this.isLogsLoadingComplete = true;
                 }
-
-                return arr;
-            },
-            buildId(): string | null {
-                const data = this.$store.state.currentDevOpsData;
-
-                if (data !== undefined) {
-                    if (this.$store.state.buildIndex != null) {
-                        return data.value[this.$store.state.buildIndex].buildNumber;
-                    }
-                }
-
-                return null;
-            },
-            buildIndex(): number | null {
-                const index = this.$store.state.buildIndex;
-
-                if (index != null) {
-                    return index;
-                }
-
-                return null;
-            },
-            isSucceed(): boolean | null {
-                if (this.devOpsData != null || this.devOpsData !== undefined) {
-                    if (this.buildIndex != null) {
-                        return this.devOpsData!.value[this.buildIndex!].result === "succeeded";
-                    }
-                }
-                return null;
-            },
-            detailsTableList(): Map<string, string> {
-                const map: Map<string, string> = new Map<string, string>();
-
-                if (this.devOpsData != null) {
-                    if (this.buildIndex != null) {
-                        map.set("名称",
-                            this.devOpsData!.value[this.buildIndex!].definition.name);
-                        map.set("项目名称",
-                            this.devOpsData!.value[this.buildIndex!].definition.project.name);
-                        map.set("项目公开状态",
-                            this.devOpsData!.value[this.buildIndex!].definition.project.visibility);
-                        map.set("修订",
-                            this.devOpsData!.value[this.buildIndex!].definition.project.revision.toString());
-                        map.set("最后一次修改",
-                            new Date(
-                                this.devOpsData!.value[this.buildIndex!].definition.project.lastUpdateTime).toString());
-                        map.set("构建编号",
-                            this.devOpsData!.value[this.buildIndex!].buildNumber);
-                        map.set("构建状态",
-                            this.devOpsData!.value[this.buildIndex!].status);
-                        map.set("构建原因",
-                            this.devOpsData!.value[this.buildIndex!].reason);
-                        map.set("构建号码修订",
-                            this.devOpsData!.value[this.buildIndex!].buildNumberRevision.toString());
-                        map.set("队列ID",
-                            this.devOpsData!.value[this.buildIndex!].queue.id.toString());
-                        map.set("管线名称",
-                            this.devOpsData!.value[this.buildIndex!].queue.name);
-                        map.set("类型",
-                            this.devOpsData!.value[this.buildIndex!].definition.type);
-                    }
-                }
-
-                return map;
-            },
+            }
         },
-        watch: {
-            $route: "updateData",
+        async getArtifactDownloadUrl(): Promise<void> {
+            if (this.devOpsData!.value[this.buildIndex!].result === "succeeded") {
+                const artifact = await HttpHelper.Get<IArtifactModel>(
+                    `https://dev.azure.com/${this.$store.getters.config.organization}/${
+                        this.$store.getters.config.project}/_apis/build/builds/${
+                        this.devOpsData!.value[this.buildIndex!].id}/artifacts`);
+                if (Object.keys(artifact.value).length > 0) {
+                    this.artifactUrl = artifact.value[0].resource.downloadUrl;
+                }
+            }
+            this.isArtifactLoadingComplete = true;
         },
-    });
+        downloadArtifact() {
+            if (this.artifactUrl !== "") {
+                window.open(this.artifactUrl);
+            }
+        },
+    },
+    computed: {
+        logTreeItemSelected(): object | undefined {
+            if (!this.active.length) {
+                return undefined;
+            }
+
+            const id = this.active[0];
+            return (this.logs.find((log) => log.id === id))!.log;
+        },
+        devOpsData(): IDevOpsBuildModel | null {
+            const data = this.$store.state.currentDevOpsData as IDevOpsBuildModel;
+            if (data !== undefined) {
+                return data;
+            }
+
+            return null;
+        },
+        valueList(): TimelineValueListModel[] {
+            const arr: TimelineValueListModel[] = [];
+
+            if (this.devOpsData != null) {
+                if (this.buildIndex != null) {
+                    arr.push(new TimelineValueListModel("mdi-timeline-plus",
+                        "队列时间", new Date(this.devOpsData!.value[this.buildIndex!].queueTime).toString()));
+                    arr.push(new TimelineValueListModel("mdi-clock-start",
+                        "起始时间", new Date(this.devOpsData!.value[this.buildIndex!].startTime).toString()));
+                    arr.push(new TimelineValueListModel("mdi-clock-end",
+                        "结束时间", new Date(this.devOpsData!.value[this.buildIndex!].finishTime).toString()));
+                    arr.push(new TimelineValueListModel("mdi-priority-high", "优先级",
+                        this.devOpsData!.value[this.buildIndex!].priority));
+                }
+            }
+
+            return arr;
+        },
+        buildId(): string | null {
+            const data = this.$store.state.currentDevOpsData;
+
+            if (data !== undefined) {
+                if (this.$store.state.buildIndex != null) {
+                    return data.value[this.$store.state.buildIndex].buildNumber;
+                }
+            }
+
+            return null;
+        },
+        buildIndex(): number | null {
+            const index = this.$store.state.buildIndex;
+
+            if (index != null) {
+                return index;
+            }
+
+            return null;
+        },
+        isSucceed(): boolean | null {
+            if (this.devOpsData != null || this.devOpsData !== undefined) {
+                if (this.buildIndex != null) {
+                    return this.devOpsData!.value[this.buildIndex!].result === "succeeded";
+                }
+            }
+            return null;
+        },
+        detailsTableList(): Map<string, string> {
+            const map: Map<string, string> = new Map<string, string>();
+
+            if (this.devOpsData != null) {
+                if (this.buildIndex != null) {
+                    map.set("名称",
+                        this.devOpsData!.value[this.buildIndex!].definition.name);
+                    map.set("项目名称",
+                        this.devOpsData!.value[this.buildIndex!].definition.project.name);
+                    map.set("项目公开状态",
+                        this.devOpsData!.value[this.buildIndex!].definition.project.visibility);
+                    map.set("修订",
+                        this.devOpsData!.value[this.buildIndex!].definition.project.revision.toString());
+                    map.set("最后一次修改",
+                        new Date(
+                            this.devOpsData!.value[this.buildIndex!].definition.project.lastUpdateTime).toString());
+                    map.set("构建编号",
+                        this.devOpsData!.value[this.buildIndex!].buildNumber);
+                    map.set("构建状态",
+                        this.devOpsData!.value[this.buildIndex!].status);
+                    map.set("构建原因",
+                        this.devOpsData!.value[this.buildIndex!].reason);
+                    map.set("构建号码修订",
+                        this.devOpsData!.value[this.buildIndex!].buildNumberRevision.toString());
+                    map.set("队列ID",
+                        this.devOpsData!.value[this.buildIndex!].queue.id.toString());
+                    map.set("管线名称",
+                        this.devOpsData!.value[this.buildIndex!].queue.name);
+                    map.set("类型",
+                        this.devOpsData!.value[this.buildIndex!].definition.type);
+                }
+            }
+
+            return map;
+        },
+    },
+    watch: {
+        $route: "updateData",
+    },
+});
 </script>
 
 <style scoped>

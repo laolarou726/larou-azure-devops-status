@@ -1,8 +1,8 @@
 export default class LogSearchModel {
     public id: number;
-    public log: string;
+    public log: object;
 
-    constructor(id: number, log: string) {
+    constructor(id: number, log: object) {
         this.id = id;
         this.log = log;
     }
