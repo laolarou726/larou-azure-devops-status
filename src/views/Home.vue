@@ -66,6 +66,7 @@
 </template>
 
 <script lang="ts">
+  import StatusHelper from "@/helper/statusHelper";
   import AlertModel from "@/models/alertModel";
   import Vue from "vue";
 
@@ -85,7 +86,15 @@
           } else {
             const isSucceed = result.value[0].result === "succeeded";
 
-            arr.push(new AlertModel(isSucceed ? "success" : "error", `最新的构建状态：最新的一次构建发生于：${new Date(result.value[0].startTime)}，${isSucceed ? "构建成功" : "构建失败"}`, undefined));
+            const status = StatusHelper.getStatus(result.value[0].status, result.value[0].result);
+            if (status === null) {
+              arr.push(new AlertModel("warning", `最新的构建状态：最新的一次构建发生于：${
+                      new Date(result.value[0].startTime)}，正在编译`, undefined));
+            } else {
+              arr.push(new AlertModel(isSucceed ? "success" : "error",
+                      `最新的构建状态：最新的一次构建发生于：${
+                              new Date(result.value[0].startTime)}，${isSucceed ? "构建成功" : "构建失败"}`, undefined));
+            }
             arr.push(new AlertModel("info", `查询到的编译历史记录总数：${result.count}个`, undefined));
           }
         }

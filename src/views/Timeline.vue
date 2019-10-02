@@ -5,14 +5,14 @@
                 <v-row>
                     <v-col cols="12" sm="6">
                         <v-card
-                                :color="isSucceed ? 'green' : 'red'"
+                                :color="isSucceed === null ? 'yellow darken-2' : isSucceed ? 'green' : 'red'"
                                 class="pa-2"
                                 dark
                         >
                             <v-card-text class="white--text">
                                 <v-row align="center" class="headline mb-2">
-                                    <v-icon class="px-3">{{ isSucceed ? "mdi-check-circle" :
-                                        "mdi-close-circle" }}
+                                    <v-icon class="px-3">{{ isSucceed === null ? "mdi-alert-circle" :
+                                        isSucceed ? "mdi-check-circle" : "mdi-close-circle" }}
                                     </v-icon>
                                     构建ID:#{{ buildId }}
                                 </v-row>
@@ -233,18 +233,19 @@
 </template>
 
 <script lang="ts">
-import DelayHelper from "@/helper/delayHelper";
-import HttpHelper from "@/helper/HttpHelper";
-import {IArtifactModel} from "@/models/artifact/artifactModel";
-import {IBuildLogModel} from "@/models/buildLog/buildLogModel";
-import BuildTimeLineModel from "@/models/buildTimeLineModel";
-import {IDevOpsBuildModel} from "@/models/devOps/devOpsBuildModel";
-import LogSearchModel from "@/models/logSearchModel";
-import {ITimeLineModel} from "@/models/timeLine/timeLineModel";
-import TimelineValueListModel from "@/models/timelineValueListModel";
-import Vue from "vue";
+    import DelayHelper from "@/helper/delayHelper";
+    import HttpHelper from "@/helper/HttpHelper";
+    import StatusHelper from "@/helper/statusHelper";
+    import {IArtifactModel} from "@/models/artifact/artifactModel";
+    import {IBuildLogModel} from "@/models/buildLog/buildLogModel";
+    import BuildTimeLineModel from "@/models/buildTimeLineModel";
+    import {IDevOpsBuildModel} from "@/models/devOps/devOpsBuildModel";
+    import LogSearchModel from "@/models/logSearchModel";
+    import {ITimeLineModel} from "@/models/timeLine/timeLineModel";
+    import TimelineValueListModel from "@/models/timelineValueListModel";
+    import Vue from "vue";
 
-export default Vue.extend({
+    export default Vue.extend({
     mounted() {
         this.updateData();
     },
@@ -420,7 +421,9 @@ export default Vue.extend({
         isSucceed(): boolean | null {
             if (this.devOpsData != null || this.devOpsData !== undefined) {
                 if (this.buildIndex != null) {
-                    return this.devOpsData!.value[this.buildIndex!].result === "succeeded";
+                    return StatusHelper.getStatus(
+                        this.devOpsData!.value[this.buildIndex!].status,
+                        this.devOpsData!.value[this.buildIndex!].result);
                 }
             }
             return null;

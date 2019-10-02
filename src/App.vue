@@ -31,8 +31,8 @@
                   v-for="(item,i) in builds"
           >
             <v-list-item-action>
-              <v-icon :color="item.success ? 'green' : 'red'">{{ item.success ? "mdi-check-circle" :
-                "mdi-close-circle" }}
+              <v-icon :color="item.success === null ? 'yellow darken-2' : item.success ? 'green' : 'red'">{{
+                item.success === null ? "mdi-alert-circle" : item.success ? "mdi-check-circle" : "mdi-close-circle" }}
               </v-icon>
             </v-list-item-action>
             <v-list-item-content>
@@ -111,6 +111,7 @@
 
 <script lang="ts">
   import DevOpsInfoHelper from "@/helper/HttpHelper";
+  import StatusHelper from "@/helper/statusHelper";
   import AlertModel from "@/models/alertModel";
   import BuildListModel from "@/models/buildListModel";
   import {IDevOpsBuildModel} from "@/models/devOps/devOpsBuildModel";
@@ -165,13 +166,9 @@
           (result as IDevOpsBuildModel).value.forEach((val) => {
             const title = `构建ID：#${val.buildNumber}`;
 
-            switch (val.result) {
-              case "succeeded":
-                arr.push(new BuildListModel(title, "/timeline", true));
-                break;
-              case "failed":
-                arr.push(new BuildListModel(title, "/timeline", false));
-            }
+            const succeeded = StatusHelper.getStatus(val.status, val.result);
+
+            arr.push(new BuildListModel(title, "/timeline", succeeded));
           });
         }
 
