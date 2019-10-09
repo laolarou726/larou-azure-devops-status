@@ -359,7 +359,8 @@
         },
         downloadArtifact() {
             if (this.artifactUrl !== "") {
-                window.open(this.artifactUrl);
+                // window.open(this.artifactUrl);
+                HttpHelper.Get(this.artifactUrl);
             }
         },
     },

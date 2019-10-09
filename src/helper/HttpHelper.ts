@@ -17,6 +17,7 @@ export default class HttpHelper {
             });
         });
     }
+
     private static readonly options = {
         headers: {
             "Content-Type": "application/json; charset = utf-8",
