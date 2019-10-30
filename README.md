@@ -5,6 +5,13 @@
 npm install
 ```
 
+## Create the configuration file and complete it
+```
+cd /src/
+mv config.example.ts config.ts
+vim config.ts
+```
+
 ### Compiles and hot-reloads for development
 ```
 npm run serve
@@ -15,15 +22,7 @@ npm run serve
 npm run build
 ```
 
-### Run your tests
-```
-npm run test
-```
-
 ### Lints and fixes files
 ```
 npm run lint
 ```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
